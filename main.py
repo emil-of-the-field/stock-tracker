@@ -140,7 +140,10 @@ class MainWindow(QMainWindow):
     def open_portfolio_window(self):
         if self.p is None:
             self.p = PortfolioWindow()
-        self.p.show()
+            self.p.show()
+
+        else:
+            self.p = None
 
     def update_tickers(self):
         self.dow_ticker.setText('')
@@ -172,8 +175,11 @@ class StockWindow(QMainWindow):
         self.stock_name = QLabel()
         self.stock_symbol = QLabel()
         self.stock_price = QLabel()
-        self.buy_sell = QPushButton("Buy/Sell Stock")
-        self.buy_sell.clicked.connect(self.buy_sell_stock)
+        self.buy_btn = QPushButton("Buy Stock")
+        self.buy_btn.clicked.connect(self.buy_stock)
+        self.sell_btn = QPushButton("Sell Stock")
+        #self.sell_btn.clicked.connect(self.sell_stock)
+
 
         self.stock_name.setText(self.stock_info[0])
         self.stock_symbol.setText(self.stock_info[1])
@@ -185,7 +191,8 @@ class StockWindow(QMainWindow):
         layout.addWidget(self.stock_name)
         layout.addWidget(self.stock_symbol)
         layout.addWidget(self.stock_price)
-        layout.addWidget(self.buy_sell)
+        layout.addWidget(self.buy_btn)
+        layout.addWidget(self.sell_btn)
         self.b = None
 
         self.five_day = QPushButton("5D")
@@ -211,7 +218,7 @@ class StockWindow(QMainWindow):
         widget.setLayout(vbox)
         self.setCentralWidget(widget)
 
-    def buy_sell_stock(self):
+    def buy_stock(self):
         if self.b is None:
             self.b = BuyWindow(self.stock_symbol, self.stock_info[2])
             self.b.show()
@@ -219,12 +226,35 @@ class StockWindow(QMainWindow):
         else:
             self.b = None
 
+    def sell_stock(self):
+        if self.b is None:
+            self.b = BuyWindow(self.stock_symbol, self.stock_info[2])
+            self.b.show()
+
+        else:
+            self.b = None
+
+
 class PortfolioWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Portfolio Window")
         self.setGeometry(400,400,900,600)
+
+        self.portfolio_tbl = QTableWidget()
+        self.portfolio_tbl.setColumnCount(7)
+        self.portfolio_tbl.verticalHeader().setVisible(False)
+        self.portfolio_tbl.setHorizontalHeaderLabels(['Symbol', 'Name','Quantity', 'Market Price', 'Market Price Change', 'Market Price Change %',
+                                                      'Cost Basis'])
+        #self.portfolio_tbl = self.portfolio_tbl.horizontalHeader()
+        #self.portfolio_tbl.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.portfolio_tbl)
+        self.setLayout(vbox)
+
+
 
 class BuyWindow(QWidget):
     def __init__(self, stock_symbol, stock_price):
@@ -268,16 +298,45 @@ class BuyWindow(QWidget):
         bought_stock = Stock(self.ticker, self.price, datetime.datetime.now())
         portfolio = Positions(bought_stock, self.num_shares)
         json_portfolio = {
-            "stock" : {"ticker" : bought_stock.symbol,
-                       "price": bought_stock.price,
-                       "date_bought": str(bought_stock.time_bought)},
-            "num_shares" : self.num_shares
+            "Portfolio": [{
+                "stock" : {
+                    "ticker" : bought_stock.symbol,
+                    "price": bought_stock.price,
+                    "date_bought": str(bought_stock.time_bought)},
+                "num_shares" : self.num_shares}
+                ]
+        
         } 
+        json_position = {"stock" : {
+                            "ticker" : bought_stock.symbol,
+                            "price": bought_stock.price,
+                            "date_bought": str(bought_stock.time_bought)},
+                        "num_shares" : self.num_shares
+        }
+        #checks if portfolio file is empty
+        with open("portfolio.json", 'r') as f:
+            if not f.read():
+                with open("portfolio.json", "a") as f:
+                    json.dump(json_portfolio, f, indent=4)
+            #if the portfolio isn't empty, append to the end
+            else:
+                with open("portfolio.json",'r+') as file:
+                    # First we load existing data into a dict.
+                    file_data = json.load(file)
+                    # Join new_data with file_data
+                    file_data["Portfolio"].append(json_position)
+                    # Sets file's current position at offset.
+                    file.seek(0)
+                    # convert back to json.
+                    json.dump(file_data, file, indent = 4)
+
         print(bought_stock)
         print(portfolio)
         print(json_portfolio)
-        with open("portfolio.json", "w") as f:
-            json.dump(json_portfolio, f)
+
+
+
+    
 
 
 class MplCanvas(FigureCanvas):
